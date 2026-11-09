@@ -19,7 +19,8 @@ flowchart TD
     B -- "Não" --> D["Fase 2B: write-a-skill<br/>entrevista de requisitos + rascunho"]
     C --> E["Fase 3: writing-for-agents<br/>teste no-op, mover volume para references/"]
     D --> E
-    E --> F["Fase 3b: 1 exemplo few-shot<br/>entrada e saída esperada"]
+    E --> K["Fase 3b: decidir o que vira código<br/>script na skill ou checagem fora dela"]
+    K --> F["Fase 3c: 1 exemplo few-shot<br/>entrada e saída esperada"]
     F --> G["Fase 4: teste COM vs. SEM skill<br/>mesmos cenários, sessões isoladas"]
     G --> H{"Melhorou sem regressão?"}
     H -- "Não" --> I["Corrigir: cortar ruído<br/>ou adicionar só o que falhou"]
@@ -47,6 +48,7 @@ Use a skill skill-creator. Material-fonte em anexo.
 Extraia apenas: (1) regras de decisão que a IA não aplica bem sozinha,
 (2) o fluxo passo a passo, (3) frases de gatilho para a description.
 Ignore explicações, histórias e contexto. Coloque o que for volumoso em references/.
+Marque separadamente o que é operação determinística (candidata a script).
 Gere o SKILL.md com frontmatter e proponha 3 casos de teste.
 ```
 
@@ -82,9 +84,51 @@ Regras que a revisão deve garantir:
 | `description` | Terceira pessoa; diz o que faz **e** quando usar; todos os gatilhos ficam aqui |
 | Corpo | Menos de 500 linhas; só fluxo, regras não óbvias e casos de borda |
 | `references/` | Um nível de profundidade; sumário se passar de 100 linhas |
-| `scripts/` | Para operações frágeis ou repetitivas (só a saída consome contexto) |
+| `scripts/` | Para o que precisa ser determinístico (ver Fase 3b); só a saída consome contexto |
 
-### Fase 3b: Um exemplo few-shot
+## Fase 3b: Decidir o que vira código
+
+A skill é probabilística: o agente interpreta o texto e pode variar. Tudo o que precisa dar **o mesmo resultado sempre** não deve depender de interpretação. Para cada passo do rascunho, aplique a pergunta:
+
+> *Se eu rodasse este passo 5 vezes, o resultado precisa ser idêntico?* Se sim, é candidato a código.
+
+### Quem fica com a responsabilidade
+
+| Situação | Responsável | Exemplo |
+|----------|-------------|---------|
+| Várias abordagens válidas; a decisão depende de contexto ou julgamento | **Texto na skill** | Revisar um texto, priorizar itens, escolher o tom |
+| Operação determinística, ou o agente geraria o mesmo código toda vez | **Skill + script em `scripts/`** | Validar um arquivo, converter formato, calcular, gerar o artefato final |
+| Operação frágil, em que um passo fora de ordem quebra o resultado | **Skill + script em `scripts/`** (execução exata, sem improviso) | Migração, empacotamento, sequência de comandos |
+| Erro precisa de tratamento explícito e mensagem previsível | **Skill + script em `scripts/`** | Validador que lista o que falhou e onde |
+| Regra **mecânica** (padrão fixo, API proibida, formato de arquivo) que deve valer **mesmo se a skill não for acionada** | **Ferramenta fora da skill**: linter, hook de pré-commit ou CI | Proibir um import, exigir nome de arquivo, rodar typecheck |
+
+### Regras de decisão
+
+- **Texto vs. script:** o script economiza tokens e aumenta a confiabilidade em relação a código gerado na hora. Adicione quando a operação é determinística, o mesmo código seria regenerado a cada uso, ou o erro precisa de tratamento explícito.
+- **Skill vs. checagem fora dela:** a skill só atua quando é acionada. Uma regra mecânica deve virar checagem determinística (regra de linter, hook ou job de CI) em vez de uma linha de texto na skill ou no `AGENTS.md`. Reserve o texto para julgamento.
+- **Sinal vindo da Fase 1:** se o baseline mostra variação entre execuções em um passo que deveria ser fixo, esse passo é script.
+- **Custo de contexto:** o script roda sem carregar o conteúdo no contexto; só a saída consome tokens. Por isso um script grande custa menos que as mesmas instruções em texto.
+
+### Como a skill e o script trabalham juntos
+
+A skill **orquestra** (quando rodar, com quais entradas, o que fazer com o resultado) e o script **executa**. No `SKILL.md`, para cada script:
+
+```markdown
+## Validação
+Ao terminar o rascunho, execute `scripts/validar.py <arquivo>` (não leia o código do script).
+- Saída `OK`: siga para a entrega.
+- Saída com erros: corrija os itens listados e execute de novo, até passar.
+```
+
+Boas práticas para o script:
+- Mensagens de erro explícitas (o que falhou, onde e como corrigir), para o agente conseguir se autocorrigir.
+- Um script por responsabilidade, com entrada e saída previsíveis.
+- Deixe claro no `SKILL.md` se o agente deve **executar** o script ou **ler** como referência; por padrão, execute.
+- Teste o script isoladamente antes de colocá-lo na skill e inclua-o nos cenários da Fase 4.
+
+**Entregável:** lista dos passos classificados (texto, script, checagem externa) e os arquivos em `scripts/`.
+
+## Fase 3c: Um exemplo few-shot
 
 Escolha o melhor caso real do material e escreva uma seção curta `## Exemplo` com **entrada** e **saída esperada**. Um exemplo bom ensina mais que dez regras abstratas, mas o modelo tende a copiar o formato: use poucos, curtos e, se possível, variados.
 
@@ -97,7 +141,9 @@ Escolha o melhor caso real do material e escreva uma seção curta `## Exemplo` 
 | Resultado | Ação |
 |-----------|------|
 | Skill não foi acionada | Reescrever a `description` (gatilhos) |
-| Acionada, mas passos ignorados | Tornar o passo mais explícito ou mover para script |
+| Acionada, mas passos ignorados | Tornar o passo mais explícito; se for um passo que deve ser exato, mover para script (Fase 3b) |
+| Resultado varia entre execuções em um passo que devia ser fixo | Transformar o passo em script |
+| Script falha ou o agente não o executa | Corrigir a mensagem de erro e o trecho do `SKILL.md` que manda executá-lo |
 | Saída igual ao baseline | A linha é no-op: apague; se nada melhora, descarte a skill |
 | Regressão em caso de borda | Restaurar a regra cortada na Fase 3 |
 
@@ -111,7 +157,7 @@ Estrutura do repositório:
 nome-da-skill/
 ├── SKILL.md
 ├── references/
-├── scripts/
+├── scripts/            # código determinístico chamado pela skill
 └── testes/
     ├── cenarios.md
     └── resultados.md   # com vs. sem skill, por modelo e data
@@ -127,6 +173,9 @@ nome-da-skill/
 - [ ] Rascunho gerado por `skill-creator` ou `write-a-skill`
 - [ ] Poda feita com `writing-for-agents`, com lista do que foi removido
 - [ ] Gatilhos todos na `description`
+- [ ] Cada passo classificado: texto, script ou checagem fora da skill
+- [ ] Scripts testados isoladamente, com erros explícitos e chamados no `SKILL.md` (executar ou ler)
+- [ ] Regras mecânicas viraram linter, hook ou CI, não texto
 - [ ] 1 exemplo few-shot curto
 - [ ] Teste com vs. sem skill registrado, incluindo caso de borda
 - [ ] Empacotado conforme a plataforma de destino
