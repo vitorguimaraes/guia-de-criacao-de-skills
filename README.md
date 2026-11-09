@@ -1,150 +1,135 @@
-# Guia de criação de skills
+# Processo prático de criação de skills
 
-Processo essencial para definir, escrever, enxugar e validar uma skill (`SKILL.md`).
+Pipeline em 5 fases usando três ferramentas, cada uma no papel em que é mais forte:
 
-## 1. Visão geral
+| Ferramenta | Papel no processo | Quando entra |
+|------------|-------------------|--------------|
+| `skill-creator` (Anthropic) | **Estruturar:** gera `SKILL.md` com frontmatter válido, gatilhos e casos de teste; também modifica skills existentes e mede desempenho | Fases 2 e 4 |
+| `write-a-skill` (Matt Pocock) | **Entrevistar:** levanta requisitos com você, redige o rascunho e revisa em conjunto | Fase 2, quando não há material-fonte |
+| `writing-for-agents` (Matt Pocock; antes `writing-great-skills`) | **Lapidar:** aplica o teste *no-op* e corta tudo que o modelo já faz sozinho | Fase 3 |
 
-Uma skill é uma pasta com um `SKILL.md` (frontmatter + instruções) e, opcionalmente, scripts, referências e assets. O objetivo não é fazer a IA "saber mais", e sim fazê-la **seguir o mesmo processo em toda execução** nos pontos em que ela erra ou varia sem instrução específica.
+> **Ideia central:** o gerador estruturado produz um rascunho **completo, porém inchado**; o filtro de poda o transforma em algo **enxuto e previsível**; o teste com vs. sem skill prova que valeu a pena.
 
-> **Regra de ouro:** só crie uma skill se existir um comportamento observável que melhora *com* ela em comparação *sem* ela. Se o modelo já acerta sozinho, a skill é custo sem benefício.
-
-## 2. Fluxo de criação
+## Visão do processo
 
 ```mermaid
 flowchart TD
-    A["1. Definir 3 cenários reais"] --> B["Rodar SEM skill e anotar falhas (baseline)"]
-    B --> C{"Há falha observável?"}
-    C -- Não --> X["Não criar a skill"]
-    C -- Sim --> D["2. Levantar requisitos"]
-    D --> E["3. Escrever rascunho enxuto (teste no-op)"]
-    E --> F["4. Distribuir conteúdo: SKILL.md, references, scripts"]
-    F --> G["5. Testar COM vs. SEM skill"]
-    G --> H{"Melhorou, sem regressão?"}
-    H -- Não --> I["6. Ajustar: cortar ruído ou corrigir falha"]
+    A["Fase 1: Preparar<br/>material-fonte + 3 cenários + baseline SEM skill"] --> B{"Há material-fonte?"}
+    B -- "Sim (texto, histórico de chat, docs)" --> C["Fase 2A: skill-creator<br/>extrair regras, fluxo e gatilhos"]
+    B -- "Não" --> D["Fase 2B: write-a-skill<br/>entrevista de requisitos + rascunho"]
+    C --> E["Fase 3: writing-for-agents<br/>teste no-op, mover volume para references/"]
+    D --> E
+    E --> F["Fase 3b: 1 exemplo few-shot<br/>entrada e saída esperada"]
+    F --> G["Fase 4: teste COM vs. SEM skill<br/>mesmos cenários, sessões isoladas"]
+    G --> H{"Melhorou sem regressão?"}
+    H -- "Não" --> I["Corrigir: cortar ruído<br/>ou adicionar só o que falhou"]
     I --> G
-    H -- Sim --> J["Publicar"]
+    H -- "Sim" --> J["Fase 5: empacotar e publicar"]
 ```
 
-| # | Etapa | O que fazer |
-|---|-------|-------------|
-| 1 | Cenários e baseline | Escolha 3 tarefas reais e rode sem skill. Anote onde o modelo erra, varia ou esquece algo. |
-| 2 | Requisitos | Defina tarefa/domínio, casos de uso, o que precisa ser determinístico (script) e o material de apoio. |
-| 3 | Rascunho enxuto | Aplique o teste no-op (seção 6) a cada linha. Escreva só o que corrige uma falha do baseline. |
-| 4 | Distribuição | Fluxo e regras no `SKILL.md`; material volumoso em `references/`; operações frágeis em `scripts/`. |
-| 5 | Teste com vs. sem | Mesmos cenários, sessões isoladas, mesmo modelo. Compare comportamento observável (passos seguidos, omissões, conteúdo inventado). |
-| 6 | Iteração | Remova o que não mudou o resultado, adicione só o que corrigiu uma falha e reteste. |
+## Fase 1: Preparar (antes de qualquer skill)
 
-## 3. Anatomia de uma skill
+1. **Escolha 3 cenários reais** em que a IA erra, varia ou esquece algo. Inclua 1 caso de borda.
+2. **Rode cada cenário sem skill**, em sessão nova, e guarde as saídas. É o seu baseline.
+3. **Reúna o material-fonte**, se existir (Markdown de documentação, histórico de uma tarefa bem-sucedida, regras internas).
+4. **Decida:** se o baseline já sai bom, pare aqui; a skill não se justifica.
 
-```mermaid
-flowchart LR
-    R["nome-da-skill/"] --> S["SKILL.md - obrigatório: frontmatter + instruções"]
-    R --> SC["scripts/ - código determinístico"]
-    R --> RF["references/ - documentos lidos sob demanda"]
-    R --> AS["assets/ - templates, ícones e fontes usados na saída"]
+**Entregável:** pasta com `cenarios.md` (3 pedidos) e `baseline/` (saídas sem skill).
+
+## Fase 2: Estruturar
+
+### 2A. Com material-fonte → `skill-creator`
+
+Prompt sugerido:
+
+```text
+Use a skill skill-creator. Material-fonte em anexo.
+Extraia apenas: (1) regras de decisão que a IA não aplica bem sozinha,
+(2) o fluxo passo a passo, (3) frases de gatilho para a description.
+Ignore explicações, histórias e contexto. Coloque o que for volumoso em references/.
+Gere o SKILL.md com frontmatter e proponha 3 casos de teste.
 ```
 
-| Item | Regra (documentação Anthropic) |
-|------|-------------------------------|
-| `name` | Até 64 caracteres; minúsculas, números e hífens. |
-| `description` | Até 1.024 caracteres; terceira pessoa; diz o que faz e quando usar. |
-| Corpo do `SKILL.md` | Menos de 500 linhas; acima disso, dividir em arquivos. |
-| Referências | Um nível de profundidade a partir do `SKILL.md`; arquivos com mais de 100 linhas ganham sumário no topo. |
+### 2B. Sem material-fonte → `write-a-skill`
 
-Esqueleto mínimo:
+Prompt sugerido:
 
-```markdown
----
-name: processando-pdfs
-description: Extrai texto e tabelas de PDFs e preenche formulários. Use quando o usuário mencionar PDFs, formulários ou extração de documentos.
----
-
-# Processando PDFs
-
-## Fluxo
-1. Verifique se o PDF tem texto selecionável; se não, rode scripts/ocr.py.
-2. Extraia com pdfplumber.
-3. Valide com scripts/validar.py antes de responder.
-
-## Avançado
-- Formulários: ver references/formularios.md (ler só se o pedido envolver formulário)
+```text
+Use a skill write-a-skill. Quero uma skill para [tarefa].
+Faça perguntas até ter: tarefa/domínio, casos de uso, o que precisa de script
+e que material de referência existe. Depois redija o rascunho e revise comigo.
 ```
 
-## 4. Descrição: o campo mais importante
+**Entregável:** rascunho de `SKILL.md` (esperado: longo e redundante; é normal) + pasta `references/` se houver.
 
-É a única parte que o agente enxerga ao decidir se carrega a skill. Todos os gatilhos ("use quando...") ficam **aqui**; uma seção "Quando usar" no corpo só seria lida depois que a skill já foi escolhida.
+## Fase 3: Lapidar com `writing-for-agents`
 
-| | Exemplo |
-|---|---------|
-| ✅ Bom | Extrai texto e tabelas de PDFs, preenche formulários e une documentos. Use ao trabalhar com PDFs ou quando o usuário mencionar formulários ou extração de documentos. |
-| ❌ Ruim | Ajuda com documentos. |
+Prompt sugerido:
 
-- Escreva em terceira pessoa, com o que a skill faz *e* quando usar.
-- Um gatilho por situação: sinônimos do mesmo gatilho só aumentam o custo.
-- Seja específico o bastante para não acionar a skill em tarefas vizinhas.
-
-## 5. Contexto e divulgação progressiva
-
-```mermaid
-sequenceDiagram
-    participant U as Usuário
-    participant A as Agente
-    participant M as Metadados (name + description)
-    participant S as SKILL.md
-    participant R as references/ e scripts/
-    Note over A,M: Metadados de todas as skills ficam sempre no contexto
-    U->>A: Pedido
-    A->>M: Compara o pedido com as descriptions
-    M-->>A: Skill correspondente
-    A->>S: Carrega o corpo
-    S-->>A: Fluxo e regras
-    A->>R: Lê ou executa só se o passo exigir
-    R-->>A: Conteúdo ou saída do script
-    A-->>U: Resposta
+```text
+Use a skill writing-for-agents. Revise o SKILL.md em anexo.
+Aplique o teste no-op linha por linha: se remover a linha não muda o
+comportamento do agente, apague. Corte conselhos genéricos, introduções,
+conclusões e regras repetidas com outras palavras.
+Mova conteúdo útil só em um ramo do fluxo para references/, deixando no
+SKILL.md um ponteiro dizendo quando ler. Liste o que removeu e por quê.
 ```
 
-- **Metadados:** sempre no contexto, de todas as skills instaladas.
-- **`SKILL.md`:** carregado só quando a skill é acionada; depois permanece no contexto da conversa.
-- **Recursos:** lidos ou executados só quando o passo exige. Scripts consomem tokens apenas pela saída, não pelo código.
+Regras que a revisão deve garantir:
 
-**Consequência prática:** a descrição custa em todo turno, então merece a poda mais dura. O que só serve em um ramo do fluxo vai para `references/`, com um ponteiro dizendo *quando* ler.
+| Item | Critério |
+|------|----------|
+| `description` | Terceira pessoa; diz o que faz **e** quando usar; todos os gatilhos ficam aqui |
+| Corpo | Menos de 500 linhas; só fluxo, regras não óbvias e casos de borda |
+| `references/` | Um nível de profundidade; sumário se passar de 100 linhas |
+| `scripts/` | Para operações frágeis ou repetitivas (só a saída consome contexto) |
 
-## 6. Poda: o que cortar e o que manter
+### Fase 3b: Um exemplo few-shot
 
-Teste **no-op**: se remover uma instrução não muda o comportamento do agente, ela é ruído. Divergências sobre uma linha se resolvem *rodando* a skill, não discutindo.
+Escolha o melhor caso real do material e escreva uma seção curta `## Exemplo` com **entrada** e **saída esperada**. Um exemplo bom ensina mais que dez regras abstratas, mas o modelo tende a copiar o formato: use poucos, curtos e, se possível, variados.
 
-| Cortar ou mover para `references/` | Manter no `SKILL.md` |
-|-----------------------------------|----------------------|
-| Conselhos genéricos ("seja profissional", "escreva código limpo") | Regras específicas e não óbvias do seu contexto |
-| Teoria e explicações longas | Passos ordenados e critérios de conclusão |
-| A mesma regra repetida com outras palavras | Restrições de segurança e casos de borda que quebram o fluxo |
-| Introduções e conclusões | Um ou dois exemplos curtos de entrada e saída |
-| Conteúdo útil em apenas um ramo do fluxo | Ponteiros que dizem quando ler cada referência |
+## Fase 4: Validar com vs. sem skill
 
-> **Limites do no-op:** o que é no-op depende do modelo. Uma linha inútil em um modelo forte pode ser essencial em um menor, então reteste ao trocar de modelo. Poda agressiva demais também apaga regras raras; inclua casos de borda nos testes.
+1. Instale a skill e rode os **mesmos 3 cenários** da Fase 1, em sessões novas e com o mesmo modelo.
+2. Compare com o baseline em **comportamento observável**: seguiu os passos? omitiu algo? inventou conteúdo? acionou a skill no momento certo?
+3. Opcional: peça ao `skill-creator` para medir o desempenho dos casos de teste.
 
-**Exemplos:** um exemplo bom costuma ensinar mais que dez regras abstratas, mas o modelo tende a copiar o formato dele. Use poucos, curtos e variados; exemplos longos vão para `references/`.
+| Resultado | Ação |
+|-----------|------|
+| Skill não foi acionada | Reescrever a `description` (gatilhos) |
+| Acionada, mas passos ignorados | Tornar o passo mais explícito ou mover para script |
+| Saída igual ao baseline | A linha é no-op: apague; se nada melhora, descarte a skill |
+| Regressão em caso de borda | Restaurar a regra cortada na Fase 3 |
 
-## 7. Ferramentas de apoio
+Itere: **cortar o que não mudou o resultado, acrescentar só o que corrigiu uma falha observada**, e reteste. Reteste também ao trocar de modelo, porque o que é no-op depende dele.
 
-| Ferramenta | Papel no processo |
-|------------|-------------------|
-| `skill-creator` | Cria estrutura e frontmatter válidos, modifica skills existentes e ajuda a medir desempenho. O primeiro rascunho costuma vir longo e precisa de poda. |
-| `write-a-skill` | Processo guiado: levanta requisitos, redige o rascunho e revisa com você. |
-| `writing-for-agents` | Referência de escrita para documentos lidos por agentes (antes chamada `writing-great-skills`). Corrige excesso apagando, não explicando mais. |
+## Fase 5: Empacotar e publicar
 
-> **Copilot:** `name` e `description` em minúsculas, nome sem a palavra "skill", frontmatter apenas com esses dois campos, arquivo `agents/ui_metadata.yaml` e pacote `skill.zip` de até 25 MB.
+Estrutura do repositório:
 
-## 8. Checklist antes de publicar
+```text
+nome-da-skill/
+├── SKILL.md
+├── references/
+├── scripts/
+└── testes/
+    ├── cenarios.md
+    └── resultados.md   # com vs. sem skill, por modelo e data
+```
 
-- [ ] Existe um baseline sem skill mostrando a falha que ela corrige.
-- [ ] Descrição em terceira pessoa, com o que faz e quando usar, sem sinônimos repetidos.
-- [ ] `SKILL.md` com menos de 500 linhas e cada linha passa no teste no-op.
-- [ ] Referências a um nível de profundidade, com sumário se passarem de 100 linhas e ponteiros de "quando ler".
-- [ ] Operações frágeis ou repetitivas viraram scripts testados.
-- [ ] Terminologia consistente e caminhos com barra normal (`/`).
-- [ ] Teste com vs. sem skill nos mesmos cenários, incluindo casos de borda.
-- [ ] Nome, descrição e pacote respeitam as regras da plataforma de destino.
+- Registre em `resultados.md` o baseline, o resultado com skill e o modelo usado.
+- Para o **Copilot**: `name` e `description` em minúsculas, nome sem a palavra "skill", frontmatter apenas com esses dois campos, arquivo `agents/ui_metadata.yaml` e pacote `skill.zip` de até 25 MB.
+- Para o **Claude**: `name` até 64 caracteres (minúsculas, números e hífens) e `description` até 1.024 caracteres.
+
+## Checklist rápido
+
+- [ ] Baseline sem skill mostra a falha que ela corrige
+- [ ] Rascunho gerado por `skill-creator` ou `write-a-skill`
+- [ ] Poda feita com `writing-for-agents`, com lista do que foi removido
+- [ ] Gatilhos todos na `description`
+- [ ] 1 exemplo few-shot curto
+- [ ] Teste com vs. sem skill registrado, incluindo caso de borda
+- [ ] Empacotado conforme a plataforma de destino
 
 ## Referências
 
