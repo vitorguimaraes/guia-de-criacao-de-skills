@@ -12,21 +12,7 @@ Pipeline em 5 fases usando três ferramentas, cada uma no papel em que é mais f
 
 ## Visão do processo
 
-```mermaid
-flowchart TD
-    A["Fase 1: Preparar<br/>material-fonte + 3 cenários + baseline SEM skill"] --> B{"Há material-fonte?"}
-    B -- "Sim (texto, histórico de chat, docs)" --> C["Fase 2A: skill-creator<br/>extrair regras, fluxo e gatilhos"]
-    B -- "Não" --> D["Fase 2B: write-a-skill<br/>entrevista de requisitos + rascunho"]
-    C --> E["Fase 3: writing-for-agents<br/>teste no-op, mover volume para references/"]
-    D --> E
-    E --> K["Fase 3b: decidir o que vira código<br/>script na skill ou checagem fora dela"]
-    K --> F["Fase 3c: 1 exemplo few-shot<br/>entrada e saída esperada"]
-    F --> G["Fase 4: teste COM vs. SEM skill<br/>mesmos cenários, sessões isoladas"]
-    G --> H{"Melhorou sem regressão?"}
-    H -- "Não" --> I["Corrigir: cortar ruído<br/>ou adicionar só o que falhou"]
-    I --> G
-    H -- "Sim" --> J["Fase 5: empacotar e publicar"]
-```
+![Fluxo do processo de criação de skills em 5 fases](docs/fluxo-skills.png)
 
 ## Fase 1: Preparar (antes de qualquer skill)
 
