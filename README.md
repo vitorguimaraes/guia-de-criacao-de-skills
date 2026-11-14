@@ -92,6 +92,25 @@ Cada conteúdo ocupa um degrau: **passo no arquivo** (o que o agente faz, em ord
 - **Co-localização:** definição, regras e ressalvas de um conceito ficam sob o mesmo título, não espalhadas. (WFA)
 - Cuidado com o **sprawl**: documento longo demais dilui a atenção mesmo com todas as linhas úteis. A cura é descer material para `references/`, não cortar às cegas. (WFA)
 
+**Quantas linhas, afinal?** Trate o número como **alarme**, não como regra:
+
+| Referência | Valor | Origem |
+|------------|-------|--------|
+| Heurística antiga do Pocock | revisar a partir de ~100 linhas ("SKILL.md under 100 lines") | `write-a-skill`, hoje extinta; a `writing-for-agents` não repete o número |
+| Teto da Anthropic | ~500 linhas, aproximado ("feel free to go longer") | SC |
+| Critério atual do Pocock | **sprawl**: longo demais mesmo com linhas úteis | WFA |
+
+Como referência de prática, as 38 skills do plugin `mattpocock-skills` 1.3.1 têm mediana de ~75 linhas (27 abaixo de 100; a maior, 170), e o próprio `skill-creator` tem 485. Isso descreve o que esses autores fazem, **não prova** que menos linhas rende melhor. Conta linhas, não tokens. (autor, medição)
+
+Na prática: mire no menor corpo que ainda passa nos testes da Fase 4, investigue qualquer `SKILL.md` acima de ~100 linhas (há ramo que deveria virar `references/`?) e nunca passe de ~500. O que decide é o teste no-op e o resultado medido, não a contagem.
+
+**Seccionar em arquivos lidos sob demanda funciona, com três cuidados:**
+- **Não é, principalmente, economia de tokens.** É como se protege a hierarquia: referência que deveria estar em outro arquivo, mas fica no corpo, esconde os passos e torna a atenção a eles um cara-ou-coroa. (WFA)
+- **O ponteiro é o ponto frágil.** Material indispensável atrás de um ponteiro mal escrito vira variância: afine primeiro a redação do ponteiro (o que é o material e em que **ramo** consultá-lo) e só embuta o conteúdo se isso falhar. Divida por **ramo**, não só por tamanho. (WFA)
+- **Dividir tem custo.** Cada ponteiro é uma linha sempre carregada, e material que o agente precisa **antes de agir** não deve ficar atrás de carregamento tardio. O repositório do Pocock recusa carregar a `writing-for-agents` só na hora de escrever na skill `retro`, porque ela usa essas definições para julgar antes de escrever. (WFA, `.out-of-scope` do upstream)
+
+Exemplo real: a própria `writing-for-agents` isola o ramo "o documento é uma skill" em um `SKILL-MECHANICS.md` de 22 linhas. Mantenha referências a **um nível** de distância do `SKILL.md`. (autor)
+
 ### 3.3 Passos terminam em um critério de conclusão (WFA)
 
 Todo passo precisa dizer **quando está pronto**.
@@ -163,9 +182,13 @@ A skill é probabilística: o agente interpreta o texto e pode variar. Para cada
 | Regra **mecânica** que deve valer **mesmo sem a skill ser acionada** | **Fora da skill:** linter, hook ou CI | Proibir um import, exigir nome de arquivo |
 
 - **Sinal vindo dos testes:** se vários testes fazem o agente escrever o mesmo script auxiliar, esse script deve ser empacotado em `scripts/`. (SC)
-- O script roda sem carregar seu conteúdo no contexto; só a saída consome tokens. (autor)
-- No `SKILL.md`, diga se o agente deve **executar** ou **ler** o script (por padrão, executar) e o que fazer com cada saída. Mensagens de erro devem dizer o que falhou, onde e como corrigir. (autor)
+- **Economia de tokens:** scripts em `scripts/` são executados sem serem carregados no contexto; só a saída consome tokens. (SC: recursos do nível 3 entram sob demanda, e "scripts can execute without loading")
+- Exemplo real: a skill Archify tem um `SKILL.md` de 137 linhas e um CLI de ~7.300 linhas que o agente só **executa**; o `SKILL.md` manda rodar o comando e não inspecionar a implementação. A economia vale por construção e **não foi medida** aqui; o benchmark da Fase 4 (SC) registra tokens e tempo com vs. sem skill. (autor, observação)
+- No `SKILL.md`, diga se o agente deve **executar** ou **ler** o script (por padrão, executar: se ele ler o código, o ganho some) e o que fazer com cada saída. Mensagens de erro devem dizer o que falhou, onde e como corrigir. (autor)
+- Mantenha a **saída curta e estruturada**: ela também gasta contexto. (autor)
 - Teste o script isoladamente antes de colocá-lo na skill. (autor)
+
+Ressalvas (autor): **não** transforme julgamento em script; scripts trazem dependências (Node, Python), manutenção e **risco de segurança**, porque rodam com as permissões do agente; e podem esbarrar em pedidos de permissão ou bloqueios do ambiente.
 
 ## Fase 3c: Um exemplo few-shot
 
