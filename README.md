@@ -21,7 +21,7 @@ Nada aqui se apoia em pesquisa acadêmica. As fontes são documentos de instruç
 
 ## Visão do processo
 
-![Fluxo do processo de criação de skills](docs/fluxo-skills.png)
+![Fluxo do processo de criação de skills](docs/fluxo-skills-v2.png)
 
 ---
 
