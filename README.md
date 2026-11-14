@@ -116,7 +116,7 @@ Exemplo real: a própria `writing-for-agents` isola o ramo "o documento é uma s
 Todo passo precisa dizer **quando está pronto**.
 
 - **Clareza:** o agente consegue distinguir "feito" de "não feito"? Critério vago ("entendimento alcançado") convida à **conclusão prematura**.
-- **Exigência:** "todo modelo modificado listado" força trabalho completo; "produza uma lista de mudanças" não.
+- **Exigência:** "todo modelo modificado listado" obriga o agente a verificar todos; "produza uma lista de mudanças" aceita uma lista parcial.
 - Os melhores critérios são verificáveis e exaustivos. Afie o critério primeiro; só divida a sequência em duas se ele for irredutivelmente vago **e** você observar o agente apressando.
 
 ### 3.4 Como escrever as instruções
