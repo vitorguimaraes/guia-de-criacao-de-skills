@@ -2,7 +2,7 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "Processo de criação de skills em 5 fases",
+    "title": "Processo de criação de skills",
     "locale": "pt-BR",
     "quality_profile": "showcase",
     "output": "docs/fluxo-skills.html",
@@ -473,10 +473,10 @@
       "mode": "auto",
       "entries": {
         "frontend": {
-          "label": "Preparar / testar"
+          "label": "Definir / preparar / testar"
         },
         "backend": {
-          "label": "Skill que redige ou poda"
+          "label": "Skill que estrutura ou poda"
         },
         "messagebus": {
           "label": "Decisão de código"
@@ -485,7 +485,7 @@
           "label": "Exemplo few-shot"
         },
         "security": {
-          "label": "Correção"
+          "label": "Desvio ou correção"
         },
         "cloud": {
           "label": "Entrega"
@@ -498,16 +498,16 @@
   },
   "lanes": [
     {
+      "id": "def",
+      "label": "Fase 0: Definir"
+    },
+    {
       "id": "prep",
       "label": "Fase 1: Preparar"
     },
     {
-      "id": "creator",
-      "label": "Fase 2A: skill-creator"
-    },
-    {
-      "id": "writer",
-      "label": "Fase 2B: write-a-skill"
+      "id": "struct",
+      "label": "Fase 2: skill-creator"
     },
     {
       "id": "prune",
@@ -527,13 +527,14 @@
     },
     {
       "id": "ship",
-      "label": "Fase 5: Publicar"
+      "label": "Fase 5: Publicar e manter"
     }
   ],
   "mainPath": [
+    "def",
+    "fit",
     "prep",
-    "has_source",
-    "creator",
+    "struct",
     "prune",
     "code",
     "fewshot",
@@ -543,36 +544,45 @@
   ],
   "nodes": [
     {
+      "id": "def",
+      "lane": "def",
+      "col": 0,
+      "type": "frontend",
+      "label": "Definir",
+      "sublabel": "objetivo, escopo, não-objetivos"
+    },
+    {
+      "id": "fit",
+      "lane": "def",
+      "col": 1,
+      "type": "external",
+      "icon": "decision",
+      "label": "Skill é o artefato certo?"
+    },
+    {
+      "id": "stop",
+      "lane": "def",
+      "col": 3,
+      "type": "security",
+      "icon": "stop",
+      "label": "Outro artefato",
+      "sublabel": "hook, MCP ou CLAUDE.md"
+    },
+    {
       "id": "prep",
       "lane": "prep",
-      "col": 0,
+      "col": 1,
       "type": "frontend",
       "label": "Preparar",
       "sublabel": "3 cenários + baseline sem skill"
     },
     {
-      "id": "has_source",
-      "lane": "prep",
-      "col": 1,
-      "type": "external",
-      "icon": "decision",
-      "label": "Há material-fonte?"
-    },
-    {
-      "id": "creator",
-      "lane": "creator",
+      "id": "struct",
+      "lane": "struct",
       "col": 2,
       "type": "backend",
       "label": "skill-creator",
-      "sublabel": "extrair regras e gatilhos"
-    },
-    {
-      "id": "writer",
-      "lane": "writer",
-      "col": 2,
-      "type": "backend",
-      "label": "write-a-skill",
-      "sublabel": "entrevista + rascunho"
+      "sublabel": "intenção, entrevista, rascunho"
     },
     {
       "id": "prune",
@@ -580,7 +590,7 @@
       "col": 3,
       "type": "backend",
       "label": "writing-for-agents",
-      "sublabel": "teste no-op + references/"
+      "sublabel": "poda, ponteiros, critérios"
     },
     {
       "id": "code",
@@ -603,8 +613,8 @@
       "lane": "test",
       "col": 4,
       "type": "frontend",
-      "label": "Teste COM vs. SEM skill",
-      "sublabel": "mesmos cenários, sessões novas"
+      "label": "Evals COM vs. SEM skill",
+      "sublabel": "acionamento + benchmark"
     },
     {
       "id": "improved",
@@ -629,36 +639,38 @@
       "col": 5,
       "type": "cloud",
       "icon": "success",
-      "label": "Empacotar e publicar"
+      "label": "Empacotar e manter"
     }
   ],
   "edges": [
     {
       "id": "e1",
-      "from": "prep",
-      "to": "has_source"
+      "from": "def",
+      "to": "fit"
     },
     {
       "id": "e2",
-      "from": "has_source",
-      "to": "creator",
+      "from": "fit",
+      "to": "stop",
+      "label": "Não",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "e3",
+      "from": "fit",
+      "to": "prep",
       "label": "Sim",
       "variant": "emphasis"
     },
     {
-      "id": "e3",
-      "from": "has_source",
-      "to": "writer",
-      "label": "Não"
-    },
-    {
       "id": "e4",
-      "from": "creator",
-      "to": "prune"
+      "from": "prep",
+      "to": "struct"
     },
     {
       "id": "e5",
-      "from": "writer",
+      "from": "struct",
       "to": "prune"
     },
     {
